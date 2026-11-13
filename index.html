@@ -598,12 +598,12 @@
   function analyzePDF(buf){
     const bytes=new Uint8Array(buf); let str="";const CH=32768;
     for(let i=0;i<bytes.length;i+=CH) str+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+    /* Take the LAST occurrence: after an incremental update the newest Info dictionary is the effective one. */
     function fld(name){
-      let m=str.match(new RegExp("/"+name+"\\s*\\(((?:[^()\\\\]|\\\\.)*)\\)"));
-      if(m) return _pdfStr(m[1]);
-      m=str.match(new RegExp("/"+name+"\\s*<([0-9A-Fa-f\\s]*)>"));
-      if(m) return _pdfHex(m[1]);
-      return null;
+      const re=new RegExp("/"+name+"\\s*(?:\\(((?:[^()\\\\]|\\\\.)*)\\)|<([0-9A-Fa-f\\s]*)>)","g");
+      let m,val=null;
+      while((m=re.exec(str))!==null){val=(m[1]!==undefined)?_pdfStr(m[1]):_pdfHex(m[2]);if(m[0].length===0)re.lastIndex++;}
+      return val;
     }
     return {
       Producer:fld("Producer"), Creator:fld("Creator"), Author:fld("Author"), Title:fld("Title"),

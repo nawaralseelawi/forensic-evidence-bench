@@ -24,9 +24,14 @@ Live page: https://nawaralseelawi.github.io/forensic-evidence-bench/
 
 Everything runs locally in the browser. No file leaves the device, there is no backend and no analytics.
 
+## User guide (Arabic)
+
+Step-by-step guide to the bench and the test pack: `Platform_Guide_AR.pdf` (editable source: `Platform_Guide_AR.docx`).
+Direct link: https://github.com/nawaralseelawi/forensic-evidence-bench/raw/main/Platform_Guide_AR.pdf
+
 ## Test pack
 
-`Basra_Test_Pack.zip` holds sample files for every panel (hash and bit difference, true file type, EXIF, ELA, PDF metadata, pixel comparison) with a short guide inside.
+`Basra_Test_Pack.zip` holds sample files for every panel (hash and bit difference, true file type, EXIF, ELA, PDF metadata, pixel comparison, and a real photo with a Photoshop edit) with a short guide inside.
 Direct download: https://nawaralseelawi.github.io/forensic-evidence-bench/Basra_Test_Pack.zip
 
 Transfer the zip itself, not the extracted files, through messaging apps: they rewrite file dates and strip metadata.
