@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة فاحص الأدلة الرقمية - Forensic Evidence Bench</title>
+<style>
+  :root{
+    --bg:#0A0F1E; --panel:#121A30; --panel2:#0E1627; --border:#243250;
+    --txt:#E8EDF7; --muted:#8A97B5; --faint:#5B678A;
+    --verify:#2DD4A7; --alert:#F4B740; --danger:#FB5E6A; --accent:#27D3EE;
+    --mono:ui-monospace,"Cascadia Code","Consolas","Courier New",monospace;
+    --sans:"Segoe UI",Tahoma,system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--txt);font-family:var(--sans);line-height:1.6}
+  .wrap{max-width:980px;margin:0 auto;padding:24px 20px 70px}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  /* header */
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--border)}
+  .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#163050,#0E7490);
+    display:grid;place-items:center;flex:0 0 auto;box-shadow:0 0 0 1px var(--border)}
+  .logo svg{width:24px;height:24px}
+  .htxt{flex:1 1 240px;min-width:200px}
+  header h1{font-size:20px;font-weight:700;letter-spacing:-.2px}
+  header .en{font-size:12px;color:var(--muted);font-family:var(--mono);direction:ltr;text-align:right}
+  .offline{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--verify);
+    background:rgba(45,212,167,.08);border:1px solid rgba(45,212,167,.3);padding:6px 11px;border-radius:999px;white-space:nowrap}
+  .offline .dot{width:7px;height:7px;border-radius:50%;background:var(--verify);box-shadow:0 0 8px var(--verify)}
+  /* persistent banner */
+  .gov{margin:18px 0 6px;border:1px solid rgba(244,183,64,.4);background:rgba(244,183,64,.07);
+    border-radius:12px;padding:13px 16px;font-size:13px;color:var(--alert);display:flex;gap:10px;align-items:flex-start}
+  .gov svg{width:18px;height:18px;flex:0 0 auto;margin-top:2px}
+  .gov b{color:#FBD37A}
+  /* tabs */
+  nav.tabs{display:flex;gap:8px;margin:18px 0 6px;flex-wrap:wrap}
+  .tab{flex:1 1 auto;background:var(--panel2);border:1px solid var(--border);color:var(--muted);
+    border-radius:11px;padding:12px 14px;font-size:14px;font-weight:600;cursor:pointer;text-align:center;
+    display:flex;flex-direction:column;gap:2px;transition:background .15s,color .15s,border-color .15s}
+  .tab small{font-size:11px;font-weight:400;color:var(--faint)}
+  .tab:hover{border-color:var(--accent)}
+  .tab.active{background:var(--panel);color:var(--txt);border-color:var(--accent)}
+  .tab.active small{color:var(--accent)}
+  .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  section.view{display:none}
+  section.view.active{display:block}
+  /* generic panel */
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px 22px;margin-top:16px}
+  .panel h2{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;
+    margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .panel h2 svg{width:16px;height:16px;color:var(--accent)}
+  .hidden{display:none}
+  .lead{font-size:14px;color:var(--muted);margin:6px 0 0}
+  /* ===== Unit 1: integrity ===== */
+  .drop{border:1.5px dashed var(--border);border-radius:16px;background:var(--panel2);padding:34px 22px;
+    text-align:center;cursor:pointer;transition:border-color .15s,background .15s;margin-top:16px}
+  .drop:hover,.drop.over{border-color:var(--accent);background:rgba(39,211,238,.04)}
+  .drop:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+  .drop svg{width:40px;height:40px;color:var(--accent);margin-bottom:10px}
+  .drop b{display:block;font-size:16px;margin-bottom:5px}
+  .drop span{color:var(--muted);font-size:13px}
+  input[type=file]{display:none}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 22px}
+  .kv .k{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+  .kv .v{font-size:15px;word-break:break-all}
+  .kv .v.mono{font-family:var(--mono);direction:ltr;text-align:right}
+  .hashbox{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:18px}
+  .hashbox .lbl{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;flex-wrap:wrap}
+  .hashbox .lbl span{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:1px}
+  .hash{font-family:var(--mono);font-size:16px;line-height:1.9;direction:ltr;text-align:left;word-break:break-all;letter-spacing:1px;user-select:all}
+  .alt-hash{font-family:var(--mono);font-size:12.5px;direction:ltr;text-align:left;word-break:break-all;color:var(--muted);margin-top:10px}
+  .alt-hash b{color:var(--faint);user-select:none}
+  .cmp-input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:10px;color:var(--txt);
+    font-family:var(--mono);font-size:14px;padding:12px 14px;direction:ltr;text-align:left}
+  .cmp-input:focus{outline:none;border-color:var(--accent)}
+  .verdict{margin-top:14px;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:13px;font-size:16px;font-weight:600}
+  .verdict svg{width:26px;height:26px;flex:0 0 auto}
+  .v-match{background:rgba(45,212,167,.1);border:1px solid rgba(45,212,167,.4);color:var(--verify)}
+  .v-fail{background:rgba(251,94,106,.1);border:1px solid rgba(251,94,106,.4);color:var(--danger)}
+  .badge{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:9px;font-size:13.5px;font-weight:600;margin-top:4px}
+  .b-ok{background:rgba(45,212,167,.1);border:1px solid rgba(45,212,167,.35);color:var(--verify)}
+  .b-warn{background:rgba(244,183,64,.1);border:1px solid rgba(244,183,64,.35);color:var(--alert)}
+  .b-neutral{background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+  .bitbox{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--panel2);padding:16px 18px}
+  .bitstat{display:flex;flex-wrap:wrap;gap:10px 26px;align-items:baseline;margin-bottom:12px}
+  .bitstat .big{font-family:var(--mono);font-size:26px;font-weight:700;color:var(--danger);direction:ltr}
+  .bitstat .lbl{font-size:13px;color:var(--muted)}
+  .bitgrid{display:grid;grid-template-columns:repeat(32,1fr);gap:2px;direction:ltr}
+  .bitgrid i{display:block;aspect-ratio:1/1;border-radius:2px;background:rgba(138,151,181,.16)}
+  .bitgrid i.d{background:var(--danger)}
+  .hexrow{font-family:var(--mono);font-size:12.5px;direction:ltr;text-align:left;word-break:break-all;margin-top:3px;color:var(--faint);line-height:1.8}
+  .hexrow b{color:var(--danger);font-weight:700}
+  .hexlbl{font-size:12.5px;color:var(--muted);margin-top:12px}
+  .v-hint{background:rgba(244,183,64,.08);border:1px solid rgba(244,183,64,.35);color:var(--alert);font-weight:500;font-size:14px}
+  .note{font-size:12.5px;color:var(--faint);margin-top:10px;line-height:1.7}
+  .record{font-family:var(--mono);font-size:12.5px;background:var(--panel2);border:1px solid var(--border);border-radius:10px;
+    padding:16px;white-space:pre-wrap;direction:ltr;text-align:left;line-height:1.8;color:var(--muted)}
+  .field{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .field label{font-size:13px;color:var(--muted)}
+  .field input{background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--txt);padding:7px 11px;font-size:13px;min-width:160px}
+  .field input:focus{outline:none;border-color:var(--accent)}
+  button{font-family:var(--sans);cursor:pointer;border:none;border-radius:9px;font-size:13px;font-weight:600;padding:8px 14px;transition:filter .15s,background .15s}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn-ghost{background:transparent;color:var(--accent);border:1px solid var(--border)}
+  .btn-ghost:hover{background:rgba(39,211,238,.08)}
+  .btn-primary{background:var(--accent);color:#06222a}
+  .btn-primary:hover{filter:brightness(1.08)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* ===== Unit 2: layers ===== */
+  .layer{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-top:14px}
+  .layer-head{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .lnum{width:34px;height:34px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);
+    display:grid;place-items:center;font-weight:700;color:var(--accent);font-family:var(--mono);flex:0 0 auto}
+  .layer-head h3{font-size:16px;font-weight:700}
+  .layer-head .lstatus{margin-inline-start:auto}
+  .pill{font-size:12px;font-weight:700;padding:5px 11px;border-radius:999px;white-space:nowrap}
+  .p-green{background:rgba(45,212,167,.13);color:var(--verify);border:1px solid rgba(45,212,167,.4)}
+  .p-yellow{background:rgba(244,183,64,.13);color:var(--alert);border:1px solid rgba(244,183,64,.4)}
+  .p-red{background:rgba(251,94,106,.13);color:var(--danger);border:1px solid rgba(251,94,106,.4)}
+  .p-idle{background:var(--panel2);color:var(--faint);border:1px solid var(--border)}
+  .lsub{font-size:12.5px;color:var(--faint);margin-bottom:12px}
+  .q{padding:11px 0;border-top:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .q .qt{flex:1 1 320px;font-size:14px}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;flex:0 0 auto}
+  .seg button{background:var(--panel2);color:var(--muted);border:none;border-radius:0;padding:7px 13px;font-size:12.5px;border-inline-start:1px solid var(--border)}
+  .seg button:first-child{border-inline-start:none}
+  .seg button.on-yes{background:var(--verify);color:#06231a}
+  .seg button.on-no{background:var(--danger);color:#2a0608}
+  .seg button.on-na{background:var(--alert);color:#2a1e02}
+  .ltool{margin-top:12px}
+  /* conviction map */
+  .map-banner{border-radius:12px;padding:15px 18px;font-size:15px;font-weight:600;display:flex;gap:12px;align-items:flex-start}
+  .map-banner svg{width:24px;height:24px;flex:0 0 auto;margin-top:1px}
+  .mb-green{background:rgba(45,212,167,.1);border:1px solid rgba(45,212,167,.4);color:var(--verify)}
+  .mb-yellow{background:rgba(244,183,64,.1);border:1px solid rgba(244,183,64,.4);color:var(--alert)}
+  .mb-red{background:rgba(251,94,106,.1);border:1px solid rgba(251,94,106,.4);color:var(--danger)}
+  .mb-idle{background:var(--panel2);border:1px solid var(--border);color:var(--muted)}
+  .mapgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+  .mapcell{border-radius:11px;padding:13px;border:1px solid var(--border);background:var(--panel2);text-align:center}
+  .mapcell .mc-n{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .mapcell .mc-t{font-size:12.5px;font-weight:600;margin:6px 0 9px;min-height:32px}
+  .mapcell .mc-bar{height:7px;border-radius:5px;background:var(--border)}
+  .mc-bar.green{background:var(--verify)} .mc-bar.yellow{background:var(--alert)} .mc-bar.red{background:var(--danger)}
+  .reminder{margin-top:16px;border:1px dashed rgba(39,211,238,.5);background:rgba(39,211,238,.05);
+    border-radius:12px;padding:14px 16px;font-size:14px;color:var(--accent);font-weight:600;display:flex;gap:10px;align-items:center}
+  .reminder svg{width:20px;height:20px;flex:0 0 auto}
+  /* ===== Unit 3 library ===== */
+  .lib h3{font-size:15px;margin:18px 0 8px;color:var(--txt)}
+  .lib ul{list-style:none;padding:0}
+  .lib li{padding:8px 0 8px 0;border-top:1px solid var(--border);font-size:14px;color:var(--muted);display:flex;gap:9px}
+  .lib li::before{content:"▸";color:var(--accent);flex:0 0 auto}
+  .toolcard{display:flex;gap:12px;align-items:center;background:var(--panel2);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin-top:10px;flex-wrap:wrap}
+  .toolcard .tc-t{flex:1 1 220px}
+  .toolcard .tc-t b{font-size:14px} .toolcard .tc-t p{font-size:12px;color:var(--faint)}
+  .legal{border:1px solid rgba(251,94,106,.4);background:rgba(251,94,106,.06);border-radius:12px;padding:15px 17px;margin-top:16px}
+  .legal h3{color:var(--danger);font-size:14px;margin:0 0 8px} .legal p{font-size:13px;color:var(--muted);line-height:1.75}
+  /* footer */
+  footer{margin-top:26px;padding-top:18px;border-top:1px solid var(--border);font-size:11.5px;color:var(--faint);line-height:1.8}
+  #ela-canvas{max-width:100%;height:auto;border:1px solid var(--border);border-radius:10px;margin-top:12px;background:#000;display:block}
+  #m-flags .badge{width:100%;box-sizing:border-box;text-align:right}
+  .cmp2grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .cmp-drop{margin-top:0;padding:26px 18px}
+  .cmp-drop.loaded{border-style:solid;border-color:var(--verify);background:rgba(45,212,167,.05)}
+  .cmp-views{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  .cmp-views figure{margin:0;text-align:center}
+  .cmp-views canvas{width:100%;height:auto;border:1px solid var(--border);border-radius:9px;background:#000;display:block}
+  .cmp-views figcaption{font-size:12px;color:var(--muted);margin-top:6px}
+  .cmp-ctrl{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+  .cmp-ctrl label{font-size:13px;color:var(--muted)}
+  .cmp-ctrl input[type=range]{flex:1 1 180px;accent-color:var(--accent)}
+  @media (max-width:640px){.cmp2grid,.cmp-views{grid-template-columns:1fr}}
+  @media (max-width:640px){.grid,.mapgrid{grid-template-columns:1fr 1fr}}
+  @media (max-width:460px){.mapgrid{grid-template-columns:1fr}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  @media print{body{background:#fff;color:#000}.tab,.drop,.offline,.row,.seg{}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#E8EDF7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+    </div>
+    <div class="htxt">
+      <h1>منصة فاحص الأدلة الرقمية</h1>
+      <div class="en">Forensic Evidence Bench</div>
+    </div>
+    <div class="offline"><span class="dot"></span> يعمل دون اتصال - لا يغادر أي ملف جهازك</div>
+  </header>
+
+  <div class="gov">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+    <div>هذه المنصة <b>أداة استرشاد ومنهجية</b>، لا تُصدر حُكماً ولا تُقرّر إن كان المحتوى مزيّفاً بالذكاء الاصطناعي. القرار النهائي تقدير بشري مبني على مجموع الأدلة، لا يُرقّم ولا يُؤتمت.</div>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <div class="tab active" data-view="guide" role="tab" tabindex="0">مرشد الطبقات الأربع<small>منهجية تقييم الدليل</small></div>
+    <div class="tab" data-view="integrity" role="tab" tabindex="0">فاحص السلامة<small>بصمة الملف وبنيته</small></div>
+    <div class="tab" data-view="compare" role="tab" tabindex="0">مُقارن البكسل<small>كشف موضع التعديل</small></div>
+    <div class="tab" data-view="library" role="tab" tabindex="0">مكتبة المعرفة<small>للجميع - علامات وأدوات</small></div>
+  </nav>
+
+  <!-- ================= VIEW: GUIDE ================= -->
+  <section class="view active" id="view-guide">
+    <p class="lead">أجب عن أسئلة كل طبقة. تتكوّن خريطة القناعة من <b>تقاطع الطبقات</b>، لا من رقم واحد. أي طبقة فيها ثغرة تُضعف الدليل بأكمله.</p>
+    <div id="layers"></div>
+
+    <div class="panel" style="margin-top:18px">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg>خريطة القناعة</h2>
+      <div id="map-banner" class="map-banner mb-idle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        ابدأ بالإجابة عن الأسئلة لتظهر خريطة القناعة.
+      </div>
+      <div class="mapgrid" id="mapgrid"></div>
+      <div class="reminder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/><path d="M9 21h6M10 17v4M14 17v4"/></svg>
+        تذكير دائم: هذه الخريطة ترشد التفكير ولا تحلّ محلّه. القرار النهائي تقدير بشري مبني على حقائق الحالة.
+      </div>
+      <div class="field" style="margin-top:16px">
+        <label for="g-examiner">الفاحص / الجهة:</label>
+        <input id="g-examiner" placeholder="مثال: مختبر الأدلة الرقمية" autocomplete="off">
+        <label for="g-case">رقم القضية:</label>
+        <input id="g-case" placeholder="…" autocomplete="off">
+      </div>
+      <div class="record" id="g-record">-</div>
+      <div class="row">
+        <button class="btn-primary" id="g-copy">نسخ مسوّدة التقييم</button>
+        <button class="btn-ghost" id="g-print">طباعة / حفظ PDF</button>
+        <button class="btn-ghost" id="g-reset">تقييم جديد</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VIEW: INTEGRITY ================= -->
+  <section class="view" id="view-integrity">
+    <p class="lead">تتحقق من <b>سلامة الملف ومصدره</b> (هل تغيّر؟ ما نوعه الحقيقي؟ هل يحمل شهادة محتوى؟) - تخدم الطبقة الأولى في المرشد. لا تقرّر إن كان المحتوى مزيّفاً.</p>
+
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="اختر ملف الدليل أو أفلته هنا">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5-5 5 5"/><path d="M12 5v12"/></svg>
+      <b>أفلت ملف الدليل هنا، أو انقر للاختيار</b>
+      <span>صورة، فيديو، صوت، PDF، أو أي ملف - يُعالَج داخل المتصفح فقط</span>
+      <input type="file" id="file">
+    </div>
+
+    <div id="results" class="hidden">
+      <div class="panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>هوية الملف</h2>
+        <div class="grid">
+          <div class="kv"><div class="k">الاسم</div><div class="v" id="f-name">-</div></div>
+          <div class="kv"><div class="k">الحجم</div><div class="v mono" id="f-size">-</div></div>
+          <div class="kv"><div class="k">النوع المُعلَن (الامتداد)</div><div class="v mono" id="f-declared">-</div></div>
+          <div class="kv"><div class="k">النوع الحقيقي (التوقيع الثنائي)</div><div class="v mono" id="f-true">-</div></div>
+          <div class="kv"><div class="k">آخر تعديل</div><div class="v mono" id="f-mod">-</div></div>
+          <div class="kv"><div class="k">شهادات المحتوى (C2PA)</div><div class="v" id="f-c2pa">-</div></div>
+        </div>
+        <div id="type-warn"></div>
+      </div>
+      <div class="panel hidden" id="meta-panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>البيانات الوصفية وأثر التحرير (Metadata)</h2>
+        <div class="grid">
+          <div class="kv"><div class="k">تاريخ التصوير الأصلي</div><div class="v mono" id="m-orig">-</div></div>
+          <div class="kv"><div class="k">الكاميرا / الجهاز</div><div class="v" id="m-cam">-</div></div>
+          <div class="kv"><div class="k">برنامج المعالجة (Software)</div><div class="v" id="m-soft">-</div></div>
+          <div class="kv"><div class="k">الموقع الجغرافي (GPS)</div><div class="v mono" id="m-gps">-</div></div>
+        </div>
+        <div id="m-flags"></div>
+        <p class="note">البيانات الوصفية مؤشرات للتحقيق لا أحكام: غيابها، أو وجود أثر برنامج تحرير، أو تناقض التواريخ - كلها تستوجب فحصاً أعمق، ولا تُثبت التزييف بمفردها.</p>
+      </div>
+      <div class="panel hidden" id="pdf-panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>بيانات الوثيقة (PDF Metadata)</h2>
+        <div class="grid">
+          <div class="kv"><div class="k">منتِج الملف (Producer)</div><div class="v" id="pdf-producer">-</div></div>
+          <div class="kv"><div class="k">البرنامج المُنشئ (Creator)</div><div class="v" id="pdf-creator">-</div></div>
+          <div class="kv"><div class="k">تاريخ الإنشاء</div><div class="v mono" id="pdf-created">-</div></div>
+          <div class="kv"><div class="k">تاريخ آخر تعديل</div><div class="v mono" id="pdf-mod">-</div></div>
+          <div class="kv"><div class="k">التوقيع الرقمي</div><div class="v" id="pdf-sig">-</div></div>
+          <div class="kv"><div class="k">عدد المراجعات (تحديثات الملف)</div><div class="v mono" id="pdf-rev">-</div></div>
+        </div>
+        <div id="pdf-flags"></div>
+        <p class="note">تحديثٌ بعد الإنشاء (مراجعات متعددة)، أو تناقض تواريخ الإنشاء والتعديل، أو منتِج تحريري - مؤشرات قوية لفحص الوثائق المزوّرة. لكنها مؤشرات لا أحكام. إذا كانت بيانات الوصف مضغوطة فقد لا تظهر.</p>
+      </div>
+      <div class="panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16M4 15h16M10 3L8 21M16 3l-2 18"/></svg>البصمة الرقمية (Cryptographic Hash)</h2>
+        <div class="hashbox">
+          <div class="lbl"><span>SHA-256</span><button class="btn-ghost" id="copy-hash">نسخ البصمة</button></div>
+          <div class="hash" id="sha256"><span class="spinner"></span></div>
+          <div class="alt-hash"><b>SHA-1: </b><span id="sha1">…</span></div>
+          <div class="alt-hash"><b>SHA-512: </b><span id="sha512">…</span></div>
+        </div>
+        <p class="note">البصمة بطاقة هوية الملف: لو تغيّر بايت واحد، تتغيّر البصمة بالكامل. سجّلها وقت الاستلام لإثبات أن الدليل لم يُمسّ - أساس «سلسلة الحيازة».</p>
+      </div>
+      <div class="panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>مطابقة مع بصمة مرجعية</h2>
+        <p class="note" style="margin-top:0;margin-bottom:12px">ألصق البصمة الأصلية (المسجّلة وقت الاستلام) للتحقق من أن الملف لم يتغيّر. عند الاختلاف تظهر مقارنة على مستوى البت.</p>
+        <input class="cmp-input" id="ref-hash" placeholder="ألصق بصمة SHA-256 المرجعية هنا (يُقبل نص يحتوي البصمة)…" autocomplete="off" spellcheck="false">
+        <div id="verdict"></div>
+      </div>
+      <div class="panel hidden" id="ela-panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 12l9-5M12 12v10M12 12L3 7"/></svg>تحليل مستوى الخطأ (Error Level Analysis)</h2>
+        <p class="note" style="margin-top:0">يُبرز المناطق التي قد تكون عُدّلت أو لُصقت في صور JPEG عبر إعادة ضغطها ومقارنتها. أداة استكشاف بصري تتطلب خبرة في قراءتها - ليست حكماً.</p>
+        <div class="row"><button class="btn-primary" id="run-ela">شغّل تحليل ELA</button></div>
+        <div id="ela-wrap" class="hidden"><canvas id="ela-canvas"></canvas></div>
+        <p class="note" id="ela-help"></p>
+      </div>
+      <div class="panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M22 12v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>محضر التحقّق</h2>
+        <div class="field">
+          <label for="examiner">اسم الفاحص / الجهة:</label>
+          <input id="examiner" placeholder="مثال: خبير الأدلة الرقمية فلان" autocomplete="off">
+          <label for="case-no">رقم القضية:</label>
+          <input id="case-no" placeholder="…" autocomplete="off">
+        </div>
+        <div class="record" id="record">-</div>
+        <div class="row">
+          <button class="btn-primary" id="copy-record">نسخ المحضر</button>
+          <button class="btn-ghost" id="print-record">طباعة / حفظ PDF</button>
+          <button class="btn-ghost" id="reset">فحص ملف آخر</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VIEW: LIBRARY ================= -->
+  <section class="view lib" id="view-library">
+    <p class="lead">مرجع سريع للجميع: ما الذي تبحث عنه، وأين تتحقق - مع تذكير دائم أن كل أداة كشف نتيجتها احتمالية لا قاطعة.</p>
+
+    <div class="panel">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4-4"/></svg>علامات تستدعي الشكّ</h2>
+      <h3>في الصورة والفيديو</h3>
+      <ul>
+        <li>حركة الرأس تكسر الصورة: أذن تتشوّش، فكّ ينفصل، نظارة تذوب عند الالتفات.</li>
+        <li>الأسنان ككتلة واحدة أو يتغيّر شكلها، ورمش غير طبيعي (منتظم بإفراط أو غائب).</li>
+        <li>جلد شمعي بلا مسام، شامة تختفي وتعود، شعر يتحرك ككتلة.</li>
+        <li>إضاءة وظلال وانعكاسات غير متّسقة مع المشهد.</li>
+      </ul>
+      <h3>في الصوت</h3>
+      <ul>
+        <li>نفَس في موضع خاطئ أو مكرّر، أو صوت «استوديو» نقيّ في مكان يُفترض أن فيه ضوضاء.</li>
+        <li>نبرة مسطّحة أو آليّة بلا انفعال طبيعي، وعدم تطابق الشفاه مع الصوت.</li>
+      </ul>
+      <p class="note">تنبيه: هذه العلامات تضعف مع تطوّر النماذج - غيابها لا يعني أن المحتوى حقيقي.</p>
+    </div>
+
+    <div class="panel">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/><path d="M21 4v6h-6"/></svg>أقوى خطوة عملية: تحقّق من المصدر</h2>
+      <p class="note" style="margin-top:0">قبل أي أداة تقنية، اسأل: هل توجد نسخة أصلية للمحتوى في مكان آخر؟ من نشره أولاً ومتى؟ غالباً ينكشف التزييف من تناقض السياق، لا من البكسل.</p>
+      <div class="toolcard"><div class="tc-t"><b>Google Lens / البحث العكسي عن الصور</b><p>ابحث عن أصل الصورة أو سياقها الأول</p></div><a class="btn-ghost" href="https://lens.google.com" target="_blank" rel="noopener">فتح</a></div>
+      <div class="toolcard"><div class="tc-t"><b>TinEye</b><p>بحث عكسي يتتبّع أقدم ظهور للصورة</p></div><a class="btn-ghost" href="https://tineye.com" target="_blank" rel="noopener">فتح</a></div>
+    </div>
+
+    <div class="panel">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>أدوات كشف (نتيجتها احتمالية)</h2>
+      <p class="note" style="margin-top:0;margin-bottom:6px">تعطي «احتمال %»، لا حكماً قاطعاً، وتختلف فيما بينها. استخدم أكثر من واحدة وقارن، ولا تعتمد على أيٍّ منها وحدها.</p>
+      <div class="toolcard"><div class="tc-t"><b>Deepware Scanner</b><p>كشف فيديو مجاني عبر المتصفح</p></div><a class="btn-ghost" href="https://deepware.ai" target="_blank" rel="noopener">فتح</a></div>
+      <div class="toolcard"><div class="tc-t"><b>Hive Moderation</b><p>كشف متعدد الوسائط</p></div><a class="btn-ghost" href="https://hivemoderation.com" target="_blank" rel="noopener">فتح</a></div>
+      <div class="toolcard"><div class="tc-t"><b>Detect Fakes - Northwestern/MIT</b><p>مورد تعليمي للتدرّب على التمييز</p></div><a class="btn-ghost" href="https://detectfakes.kellogg.northwestern.edu" target="_blank" rel="noopener">فتح</a></div>
+    </div>
+
+    <div class="legal">
+      <h3>ملاحظة قانونية ومهنية</h3>
+      <p><b>انقلب عبء الإثبات:</b> لم يعد الفيديو دليلاً بذاته، بل ادّعاءً يحتاج إثبات مصدره وأصالته من مقدّمه. <br>
+      <b>سلاح ذو حدّين:</b> كما يُستخدم التزييف للتلفيق، يُستخدم للتهرّب («الفيديو الحقيقي عليّ مزيّف») - وازن الاحتمالين. <br>
+      <b>حماية الضحية:</b> إن كان المحتوى مفبركاً (كالصور الجنسية المركّبة)، تتأذى الضحية كأنه حقيقي - تعامل بكرامة وسرّية. <br>
+      <b>تنبيه حسّاس:</b> إذا مسّ المحتوى قاصراً، فهو يدخل في إطار قانوني صارم (مواد اعتداء على الأطفال): يُحفظ ضمن المسار القانوني الرسمي حصراً، ويُحال فوراً للجهات المختصة، دون أي تداول أو فتح خارج هذا المسار.</p>
+    </div>
+  </section>
+
+  <!-- ================= VIEW: COMPARE ================= -->
+  <section class="view" id="view-compare">
+    <p class="lead">ارفع <b>نسختين</b>: الأصل المرجعي والنسخة المشتبه بها. تُبرز الأداة <b>موضع الاختلاف بالبكسل</b> بدقة. تعمل حين تتوفر نسخة مرجعية للمقارنة.</p>
+    <div class="cmp2grid">
+      <div class="drop cmp-drop" id="dropA" tabindex="0" role="button" aria-label="النسخة الأصلية المرجعية">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
+        <b>النسخة الأصلية (أ)</b><span>الأصل المرجعي</span>
+        <input type="file" id="fileA" accept="image/*">
+      </div>
+      <div class="drop cmp-drop" id="dropB" tabindex="0" role="button" aria-label="النسخة المشتبه بها">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l5-5 4 4 3-3 6 6"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
+        <b>النسخة المشتبه بها (ب)</b><span>المراد فحصها</span>
+        <input type="file" id="fileB" accept="image/*">
+      </div>
+    </div>
+    <div id="cmp-status" class="note" style="text-align:center"></div>
+
+    <div id="cmp-results" class="hidden">
+      <div id="cmp-verdict"></div>
+      <div class="panel">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4-4"/></svg>خريطة الاختلاف</h2>
+        <div class="cmp-views">
+          <figure><canvas id="cv-a"></canvas><figcaption>الأصلية (أ)</figcaption></figure>
+          <figure><canvas id="cv-b"></canvas><figcaption>المشتبه بها (ب)</figcaption></figure>
+          <figure><canvas id="cv-diff"></canvas><figcaption>الاختلاف (مُبرَز)</figcaption></figure>
+        </div>
+        <div class="cmp-ctrl">
+          <label for="cmp-sens">حساسية الكشف</label>
+          <input type="range" id="cmp-sens" min="5" max="60" value="22">
+          <span id="cmp-pct" class="badge b-neutral">-</span>
+        </div>
+        <p class="note">المناطق الملوّنة هي مواضع اختلاف البكسل بين النسختين. مفيدة حين تملك أصلاً مرجعياً موثّقاً؛ النتيجة مؤشر للفحص لا حكم قاطع. تتطلب أن تكون الصورتان بنفس الأبعاد.</p>
+      </div>
+    </div>
+  </section>
+    تعمل المنصة بالكامل داخل المتصفح (Web Crypto API)؛ لا يُرفع أي ملف ولا تُرسل أي بيانات. البصمة تتوافق مع SHA-256 المعتمدة في إرشادات NIST. C2PA معيار إثبات مصدر، ووجوده لا يعني بذاته أصالة المحتوى.
+    <br>إعداد الدكتور نوار السيلاوي. نسخة ورشة جامعة البصرة، كلية الهندسة، قسم الهندسة الكهربائية.
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $=id=>document.getElementById(id);
+
+  /* ---------- tabs ---------- */
+  const tabs=document.querySelectorAll(".tab"), views={guide:$("view-guide"),integrity:$("view-integrity"),compare:$("view-compare"),library:$("view-library")};
+  function show(v){tabs.forEach(t=>t.classList.toggle("active",t.dataset.view===v));Object.entries(views).forEach(([k,el])=>el.classList.toggle("active",k===v));}
+  tabs.forEach(t=>{t.addEventListener("click",()=>show(t.dataset.view));t.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();show(t.dataset.view);}});});
+
+  /* =========================================================
+     UNIT 2 - FOUR-LAYER GUIDE
+  ========================================================= */
+  const LAYERS=[
+    {id:"L1",title:"سلامة الملف وسلسلة الحيازة",sub:"الطبقة الأقوى قانونياً - غالباً تُحسم القضية هنا.",
+     tool:'افحص بصمة الملف في تبويب «فاحص السلامة».',
+     qs:["مصدر الملف موثّق ومعروف (من قدّمه، من أين)؟","سلسلة الحيازة موثّقة (متى، أي جهاز، من لمسه)؟","الملف الأصلي متوفر (لا نسخة فقط)؟","بصمة الملف (hash) سُجّلت وقت الاستلام وتطابق الآن؟"]},
+    {id:"L2",title:"الفحص الجنائي المتخصص",sub:"عمل الخبير الفني: أكثر من أداة، وتقرير بدرجة ثقة لا بحكم قاطع.",
+     qs:["أُحيل الدليل إلى خبير أدلة رقمية مستقل؟","استُخدمت أكثر من أداة كشف وقُورنت نتائجها؟","قدّم الخبير تقريراً بـ«درجة ثقة» لا بحكم قاطع؟","فُحصت الـ artifacts والـ metadata وآثار التوليد؟"]},
+    {id:"L3",title:"المصدر والسياق",sub:"غالباً ينكشف التزييف من تناقض السياق، لا من البكسل.",
+     qs:["يوجد أصل للمحتوى في مكان آخر (بحث عكسي)؟","القرائن المحيطة (مكان، زمان، أشخاص) متّسقة؟","دافع مقدّم الدليل أو الخصم مفحوص؟","من نشره أول مرة ومتى معروف؟"]},
+    {id:"L4",title:"حق الدفاع والخبير المضاد",sub:"التزييف سلاح ذو حدّين: للتلفيق وللتهرّب معاً.",
+     qs:["أُتيح للطرف المتضرر الطعن بالدليل؟","أُتيح له تقديم خبير مضاد؟","وُزن احتمال «الإنكار الكاذب» (ادّعاء أن الحقيقي مزيّف)؟"]},
+  ];
+  const ans={}; // key L#-i -> 'yes'|'no'|'na'
+
+  function renderLayers(){
+    const root=$("layers"); root.innerHTML="";
+    LAYERS.forEach((L,li)=>{
+      const el=document.createElement("div"); el.className="layer";
+      let html='<div class="layer-head"><div class="lnum">'+(li+1)+'</div>'
+        +'<h3>'+L.title+'</h3><span class="lstatus"><span class="pill p-idle" id="pill-'+L.id+'">لم تُقيَّم</span></span></div>'
+        +'<div class="lsub">'+L.sub+'</div>';
+      L.qs.forEach((q,qi)=>{
+        const k=L.id+"-"+qi;
+        html+='<div class="q"><div class="qt">'+q+'</div><div class="seg" data-k="'+k+'">'
+          +'<button data-v="yes">نعم</button><button data-v="na">غير متوفر</button><button data-v="no">لا</button></div></div>';
+      });
+      if(L.tool) html+='<div class="ltool"><button class="btn-ghost" data-goto="integrity">'+L.tool+'</button></div>';
+      el.innerHTML=html; root.appendChild(el);
+    });
+    root.querySelectorAll(".seg button").forEach(b=>{
+      b.addEventListener("click",()=>{
+        const seg=b.parentElement, k=seg.dataset.k, v=b.dataset.v;
+        ans[k]=v;
+        seg.querySelectorAll("button").forEach(x=>x.className="");
+        b.className = v==="yes"?"on-yes":v==="no"?"on-no":"on-na";
+        update();
+      });
+    });
+    root.querySelectorAll("[data-goto]").forEach(b=>b.addEventListener("click",()=>show(b.dataset.goto)));
+  }
+
+  function layerStatus(L){
+    let answered=0, hasNo=false, hasNa=false, total=L.qs.length;
+    L.qs.forEach((q,qi)=>{const v=ans[L.id+"-"+qi]; if(v){answered++; if(v==="no")hasNo=true; if(v==="na")hasNa=true;}});
+    if(answered===0) return {s:"idle",label:"لم تُقيَّم"};
+    if(hasNo) return {s:"red",label:"ثغرة حرجة"};
+    if(hasNa||answered<total) return {s:"yellow",label:"ناقصة"};
+    return {s:"green",label:"قوية"};
+  }
+
+  function update(){
+    const statuses=LAYERS.map(L=>{const st=layerStatus(L); const pill=$("pill-"+L.id);
+      pill.className="pill p-"+st.s; pill.textContent=st.label; return st.s;});
+    // map cells
+    const mg=$("mapgrid"); mg.innerHTML="";
+    LAYERS.forEach((L,i)=>{const st=statuses[i];
+      const cell=document.createElement("div"); cell.className="mapcell";
+      const cls=st==="green"?"green":st==="yellow"?"yellow":st==="red"?"red":"";
+      cell.innerHTML='<div class="mc-n">الطبقة '+(i+1)+'</div><div class="mc-t">'+L.title+'</div><div class="mc-bar '+cls+'"></div>';
+      mg.appendChild(cell);
+    });
+    // banner (categorical, NEVER a number)
+    const b=$("map-banner"); const anyAns=statuses.some(s=>s!=="idle");
+    const reds=statuses.filter(s=>s==="red").length, yellows=statuses.filter(s=>s==="yellow"||s==="idle").length;
+    if(!anyAns){ b.className="map-banner mb-idle"; b.innerHTML=icon("i")+"ابدأ بالإجابة عن الأسئلة لتظهر خريطة القناعة."; }
+    else if(reds>0){ b.className="map-banner mb-red"; b.innerHTML=icon("x")+"يوجد ثغرة حرجة في "+reds+" من الطبقات. الدليل لا يصمد دون معالجتها - لا تبنِ قناعتك عليه بعد."; }
+    else if(yellows>0){ b.className="map-banner mb-yellow"; b.innerHTML=icon("!")+"الطبقات لم تكتمل بعد. أكمل الإجراءات الناقصة (مثل إحالة الخبير) قبل الاعتماد على الدليل."; }
+    else { b.className="map-banner mb-green"; b.innerHTML=icon("v")+"كل الطبقات مكتملة وقوية. يبقى القرار النهائي تقديراً بشرياً لحقائق الحالة."; }
+    buildGRecord();
+  }
+  function icon(t){
+    if(t==="x")return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>';
+    if(t==="!")return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
+    if(t==="v")return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>';
+  }
+  function nowStamp(){const d=new Date(),p=x=>String(x).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());}
+  const LABEL={yes:"نعم",no:"لا",na:"غير متوفر"};
+  function buildGRecord(){
+    const ex=$("g-examiner").value.trim()||"-", cs=$("g-case").value.trim()||"-";
+    let txt="DIGITAL EVIDENCE - CONVICTION MAP DRAFT\nمسوّدة تقييم منهجية الدليل الرقمي\n=========================================\n";
+    txt+="الفاحص/الجهة : "+ex+"\nرقم القضية   : "+cs+"\nالتاريخ      : "+nowStamp()+"\n";
+    LAYERS.forEach((L,i)=>{const st=layerStatus(L);
+      txt+="-----------------------------------------\n["+(st.s==="green"?"قوية":st.s==="red"?"ثغرة":st.s==="yellow"?"ناقصة":"-")+"] الطبقة "+(i+1)+": "+L.title+"\n";
+      L.qs.forEach((q,qi)=>{const v=ans[L.id+"-"+qi];txt+="   • "+q+"  ← "+(v?LABEL[v]:"لم يُجَب")+"\n";});
+    });
+    txt+="=========================================\nتنبيه: خريطة استرشادية. القرار تقدير بشري، لا يُرقّم ولا يُؤتمت.";
+    $("g-record").textContent=txt;
+  }
+  function flash(btn,t){const o=btn.textContent;btn.textContent=t;setTimeout(()=>btn.textContent=o,1300);}
+  $("g-examiner").addEventListener("input",buildGRecord);
+  $("g-case").addEventListener("input",buildGRecord);
+  $("g-copy").addEventListener("click",()=>{navigator.clipboard.writeText($("g-record").textContent);flash($("g-copy"),"نُسخ ✓");});
+  $("g-print").addEventListener("click",()=>window.print());
+  $("g-reset").addEventListener("click",()=>{for(const k in ans)delete ans[k];renderLayers();update();$("g-examiner").value="";$("g-case").value="";});
+  renderLayers(); update();
+
+  /* =========================================================
+     UNIT 1 - INTEGRITY (Web Crypto, fully local)
+  ========================================================= */
+  const drop=$("drop"),fileInput=$("file"),results=$("results");
+  let current=null;
+  function humanSize(b){if(b<1024)return b+" B";const u=["KB","MB","GB","TB"];let i=-1,n=b;do{n/=1024;i++;}while(n>=1024&&i<u.length-1);return n.toFixed(2)+" "+u[i]+"  ("+b.toLocaleString("en")+" bytes)";}
+  function hex(buf){const v=new Uint8Array(buf);let s="";for(let i=0;i<v.length;i++)s+=v[i].toString(16).padStart(2,"0");return s;}
+  async function digest(a,buf){return hex(await crypto.subtle.digest(a,buf));}
+  function sniffType(bytes){const h=[...bytes.slice(0,16)].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase();const S=p=>h.startsWith(p);
+    if(S("FFD8FF"))return"JPEG image (image/jpeg)";if(S("89504E470D0A1A0A"))return"PNG image (image/png)";
+    if(S("474946383"))return"GIF image (image/gif)";if(S("52494646")&&h.substr(16,8)==="57454250")return"WEBP image";
+    if(S("25504446"))return"PDF document (application/pdf)";if(h.substr(8,8)==="66747970")return"MP4 / MOV video (ISO-BMFF)";
+    if(S("1A45DFA3"))return"Matroska / WEBM media";if(S("494433")||S("FFFB")||S("FFF3"))return"MP3 audio";
+    if(S("4F676753"))return"OGG media";if(S("664C6143"))return"FLAC audio";if(S("504B0304"))return"ZIP / Office (docx,xlsx,pptx)";
+    if(S("D0CF11E0"))return"Legacy MS Office (doc/xls/ppt)";if(S("424D"))return"BMP image";if(S("49492A00")||S("4D4D002A"))return"TIFF image";
+    return"غير معروف من التوقيع - type not recognized";}
+  function extOf(n){const m=n.match(/\.([a-z0-9]+)$/i);return m?m[1].toLowerCase():"";}
+  function typeMatchesExt(tt,ext){const map={jpg:"JPEG",jpeg:"JPEG",png:"PNG",gif:"GIF",webp:"WEBP",pdf:"PDF",mp4:"MP4",mov:"MP4",m4a:"MP4",mkv:"Matroska",webm:"Matroska",mp3:"MP3",ogg:"OGG",flac:"FLAC",zip:"ZIP",docx:"ZIP",xlsx:"ZIP",pptx:"ZIP",doc:"Legacy",xls:"Legacy",ppt:"Legacy",bmp:"BMP",tif:"TIFF",tiff:"TIFF"};const k=map[ext];if(!k)return null;return tt.toUpperCase().includes(k.toUpperCase());}
+  function hasC2PA(bytes){const a=[0x63,0x32,0x70,0x61],j=[0x6A,0x75,0x6D,0x62];const scan=n=>{const lim=Math.min(bytes.length,3000000);outer:for(let i=0;i<lim-n.length;i++){for(let x=0;x<n.length;x++){if(bytes[i+x]!==n[x])continue outer;}return true;}return false;};return scan(a)||scan(j);}
+  function iNow(){const d=new Date(),p=x=>String(x).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds());}
+
+  /* ---- Evidence analyzer: EXIF metadata + ELA ---- */
+  function _tagVal(dv,tiff,little,e){
+    const u16=o=>dv.getUint16(o,little),u32=o=>dv.getUint32(o,little);
+    const type=u16(e+2),num=u32(e+4),sizes={1:1,2:1,3:2,4:4,5:8,7:1,9:4,10:8};
+    const bl=(sizes[type]||1)*num; let pos=bl<=4?e+8:tiff+u32(e+8);
+    if(type===2){let s="";for(let i=0;i<num;i++){const c=dv.getUint8(pos+i);if(c===0)break;s+=String.fromCharCode(c);}return s.trim();}
+    if(type===3)return u16(pos); if(type===4)return u32(pos); if(type===5)return u32(pos)/(u32(pos+4)||1); return null;
+  }
+  function _rats(dv,tiff,little,e,n){const u32=o=>dv.getUint32(o,little);const pos=tiff+u32(e+8);const r=[];for(let i=0;i<n;i++)r.push(u32(pos+i*8)/(u32(pos+i*8+4)||1));return r;}
+  function _ifd(dv,tiff,dir,little,out){const u16=o=>dv.getUint16(o,little),u32=o=>dv.getUint32(o,little);const n=u16(dir);
+    for(let i=0;i<n;i++){const e=dir+2+i*12,tag=u16(e);
+      if(tag===0x010F)out.Make=_tagVal(dv,tiff,little,e);
+      else if(tag===0x0110)out.Model=_tagVal(dv,tiff,little,e);
+      else if(tag===0x0131)out.Software=_tagVal(dv,tiff,little,e);
+      else if(tag===0x0132)out.DateTime=_tagVal(dv,tiff,little,e);
+      else if(tag===0x9003)out.DateTimeOriginal=_tagVal(dv,tiff,little,e);
+      else if(tag===0x9004)out.DateTimeDigitized=_tagVal(dv,tiff,little,e);
+      else if(tag===0x8769)out._exifPtr=u32(e+8);
+      else if(tag===0x8825)out._gpsPtr=u32(e+8);}
+  }
+  function _gps(dv,tiff,dir,little,g){const u16=o=>dv.getUint16(o,little);const n=u16(dir);
+    for(let i=0;i<n;i++){const e=dir+2+i*12,tag=u16(e);
+      if(tag===1)g.latRef=_tagVal(dv,tiff,little,e); else if(tag===3)g.lonRef=_tagVal(dv,tiff,little,e);
+      else if(tag===2)g.lat=_rats(dv,tiff,little,e,3); else if(tag===4)g.lon=_rats(dv,tiff,little,e,3);}
+  }
+  function parseExif(buf){try{
+    const dv=new DataView(buf); if(dv.getUint16(0)!==0xFFD8)return null;
+    let off=2;const len=dv.byteLength;
+    while(off<len-1){
+      if(dv.getUint8(off)!==0xFF){off++;continue;}
+      const marker=dv.getUint16(off); if(marker===0xFFDA||marker===0xFFD9)break;
+      if(marker===0xFFE1&&dv.getUint32(off+4)===0x45786966){
+        const tiff=off+10,little=dv.getUint16(tiff)===0x4949;
+        if(dv.getUint16(tiff+2,little)!==0x002A)return null;
+        const u32=o=>dv.getUint32(o,little),out={};
+        _ifd(dv,tiff,tiff+u32(tiff+4),little,out);
+        if(out._exifPtr)_ifd(dv,tiff,tiff+out._exifPtr,little,out);
+        if(out._gpsPtr){const g={};_gps(dv,tiff,tiff+out._gpsPtr,little,g);out._gps=g;}
+        return out;
+      }
+      const segLen=dv.getUint16(off+2); if(segLen<2)break; off+=2+segLen;
+    } return null;
+  }catch(e){return null;}}
+  function _dms(a,ref){if(!a)return null;const v=a[0]+a[1]/60+a[2]/3600;return (ref==="S"||ref==="W")?-v:v;}
+  function _exifMs(s){const m=String(s).match(/(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);return m?new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime():null;}
+  const EDIT_SW=/photoshop|gimp|lightroom|snapseed|affinity|pixlr|paint\.net|luminar|topaz|canva|capcut|facetune|picsart|fotor/i;
+  let elaFile=null;
+  /* ---- PDF metadata analyzer (document forgery indicators) ---- */
+  function _pdfStr(s){
+    s=s.replace(/\\([nrtbf()\\]|[0-7]{1,3})/g,(m,g)=>{const mp={n:"\n",r:"\r",t:"\t",b:"\b",f:"\f","(":"(",")":")","\\":"\\"};return mp[g]!==undefined?mp[g]:String.fromCharCode(parseInt(g,8));});
+    if(s.charCodeAt(0)===0xFE&&s.charCodeAt(1)===0xFF){let r="";for(let i=2;i+1<s.length;i+=2)r+=String.fromCharCode((s.charCodeAt(i)<<8)|s.charCodeAt(i+1));return r;}
+    return s;
+  }
+  function _pdfHex(h){h=h.replace(/\s+/g,"");if(h.length%2)h+="0";let r="";for(let i=0;i<h.length;i+=2)r+=String.fromCharCode(parseInt(h.substr(i,2),16));if(r.charCodeAt(0)===0xFE&&r.charCodeAt(1)===0xFF){let u="";for(let i=2;i+1<r.length;i+=2)u+=String.fromCharCode((r.charCodeAt(i)<<8)|r.charCodeAt(i+1));return u;}return r;}
+  function _pdfDate(d){if(!d)return null;const m=d.match(/D?:?(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?/);if(!m)return d;return m[1]+"-"+(m[2]||"01")+"-"+(m[3]||"01")+" "+(m[4]||"00")+":"+(m[5]||"00")+":"+(m[6]||"00");}
+  function analyzePDF(buf){
+    const bytes=new Uint8Array(buf); let str="";const CH=32768;
+    for(let i=0;i<bytes.length;i+=CH) str+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));
+    function fld(name){
+      let m=str.match(new RegExp("/"+name+"\\s*\\(((?:[^()\\\\]|\\\\.)*)\\)"));
+      if(m) return _pdfStr(m[1]);
+      m=str.match(new RegExp("/"+name+"\\s*<([0-9A-Fa-f\\s]*)>"));
+      if(m) return _pdfHex(m[1]);
+      return null;
+    }
+    return {
+      Producer:fld("Producer"), Creator:fld("Creator"), Author:fld("Author"), Title:fld("Title"),
+      Created:_pdfDate(fld("CreationDate")), Modified:_pdfDate(fld("ModDate")),
+      eof:(str.match(/%%EOF/g)||[]).length,
+      signed:/\/Type\s*\/Sig|\/ByteRange/.test(str),
+      compressed:/\/ObjStm|\/XRef/.test(str) && !fld("Producer") && !fld("Creator")
+    };
+  }
+  function analyzePDFPanel(buf){
+    const pp=$("pdf-panel"); pp.classList.remove("hidden");
+    const d=analyzePDF(buf); const flags=[];
+    $("pdf-producer").textContent=d.Producer||"غير مذكور";
+    $("pdf-creator").textContent=d.Creator||"غير مذكور";
+    $("pdf-created").textContent=d.Created||"غير مذكور";
+    $("pdf-mod").textContent=d.Modified||"غير مذكور";
+    $("pdf-sig").innerHTML=d.signed?'<span class="badge b-ok">يحمل توقيعاً رقمياً - افحص صلاحيته</span>':'<span class="badge b-neutral">لا يوجد توقيع رقمي</span>';
+    $("pdf-rev").textContent=d.eof>0?String(d.eof):"غير معروف";
+    if(d.eof>1) flags.push(["warn","عُدّل الملف بعد إنشائه (تحديثات متتابعة: "+d.eof+") - مؤشر مراجعة/تعديل لاحق يستوجب الفحص."]);
+    if(d.Created&&d.Modified&&d.Created!==d.Modified) flags.push(["warn","تاريخ آخر تعديل يختلف عن تاريخ الإنشاء - تحقّق من سبب التعديل."]);
+    if(d.Producer&&/photoshop|gimp|ilovepdf|pdfescape|smallpdf|sejda|foxit phantom|nitro|libreoffice/i.test(d.Producer)) flags.push(["warn","منتِج الملف أداة تحرير/معالجة: "+d.Producer+" - قد يدل على إعادة إنتاج أو تعديل."]);
+    if(d.signed) flags.push(["ok","يحمل توقيعاً رقمياً - تحقّق من صلاحيته لدى جهة موثوقة."]);
+    if(d.compressed) flags.push(["warn","بيانات الوصف مضغوطة وقد لا تظهر بالكامل - استخدم أداة فحص PDF متخصصة لتأكيد."]);
+    if(flags.length===0) flags.push(["ok","لا توجد مؤشرات ظاهرة في بيانات الوثيقة. (الغياب لا ينفي التزوير.)"]);
+    $("pdf-flags").innerHTML=flags.map(f=>'<div class="badge b-'+(f[0]==="ok"?"ok":"warn")+'" style="margin-top:10px">'+(f[0]==="ok"?"✓ ":"⚠ ")+f[1]+'</div>').join("");
+  }
+
+  function analyzeMeta(buf,file,tt){
+    const isJpeg=/JPEG/i.test(tt), isImg=/JPEG|PNG|TIFF|WEBP|GIF|BMP/i.test(tt);
+    const mp=$("meta-panel"),ep=$("ela-panel");
+    if(!isImg){mp.classList.add("hidden");ep.classList.add("hidden");return;}
+    mp.classList.remove("hidden");
+    const ex=isJpeg?parseExif(buf):null; const flags=[];
+    if(!ex){
+      $("m-orig").textContent="-";$("m-cam").textContent="-";$("m-soft").textContent="-";$("m-gps").textContent="-";
+      flags.push(["warn","لا توجد بيانات وصفية (EXIF) - قد تكون أُزيلت، أو الصورة مُعاد حفظها أو مولّدة بالكامل. مؤشر يستحق التحقيق."]);
+    }else{
+      $("m-orig").textContent=ex.DateTimeOriginal||ex.DateTime||"غير مذكور";
+      $("m-cam").textContent=[ex.Make,ex.Model].filter(Boolean).join(" ")||"غير مذكور";
+      $("m-soft").textContent=ex.Software||"غير مذكور";
+      if(ex._gps&&ex._gps.lat){const la=_dms(ex._gps.lat,ex._gps.latRef),lo=_dms(ex._gps.lon,ex._gps.lonRef);
+        $("m-gps").innerHTML=la.toFixed(5)+", "+lo.toFixed(5)+'  <a href="https://maps.google.com/?q='+la+','+lo+'" target="_blank" rel="noopener">خريطة</a>';}
+      else $("m-gps").textContent="غير متوفر";
+      if(ex.Software&&EDIT_SW.test(ex.Software)) flags.push(["warn","أثر برنامج تحرير في البيانات الوصفية: "+ex.Software+" - لا يعني بالضرورة تزييفاً، لكنه يستوجب التحقيق."]);
+      const cap=ex.DateTimeOriginal||ex.DateTime, capMs=_exifMs(cap);
+      if(capMs&&file.lastModified&&(file.lastModified-capMs)>86400000) flags.push(["warn","تاريخ تعديل الملف أحدث من تاريخ التصوير بفارق ملحوظ - قد يدل على معالجة لاحقة."]);
+      if(ex.Make||ex.Model) flags.push(["ok","بيانات الكاميرا/الجهاز موجودة في الملف."]);
+    }
+    $("m-flags").innerHTML=flags.map(f=>'<div class="badge b-'+(f[0]==="ok"?"ok":"warn")+'" style="margin-top:10px">'+(f[0]==="ok"?"✓ ":"⚠ ")+f[1]+'</div>').join("");
+    if(isJpeg){ep.classList.remove("hidden");$("ela-wrap").classList.add("hidden");$("ela-help").textContent="";elaFile=file;}else ep.classList.add("hidden");
+  }
+  function _loadImg(src){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=src;});}
+  async function runELA(){
+    if(!elaFile)return; const help=$("ela-help"),wrap=$("ela-wrap"),cv=$("ela-canvas");
+    help.textContent="… يجري التحليل"; 
+    try{
+      const img=await _loadImg(URL.createObjectURL(elaFile));
+      const scale=Math.min(1,900/img.width),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+      const c1=document.createElement("canvas");c1.width=w;c1.height=h;const x1=c1.getContext("2d");
+      x1.drawImage(img,0,0,w,h); const orig=x1.getImageData(0,0,w,h);
+      const img2=await _loadImg(c1.toDataURL("image/jpeg",0.9)); x1.drawImage(img2,0,0,w,h); const re=x1.getImageData(0,0,w,h);
+      cv.width=w;cv.height=h;const xo=cv.getContext("2d"),out=xo.createImageData(w,h),SC=18;
+      for(let i=0;i<orig.data.length;i+=4){for(let k=0;k<3;k++)out.data[i+k]=Math.min(255,Math.abs(orig.data[i+k]-re.data[i+k])*SC);out.data[i+3]=255;}
+      xo.putImageData(out,0,0); wrap.classList.remove("hidden");
+      help.innerHTML="المناطق الأكثر سطوعاً قد تشير إلى تعديل أو لصق لاحق. <b>قراءة إرشادية تتطلب خبرة</b> - ليست دليلاً قاطعاً، وتصلح لصور JPEG فقط.";
+    }catch(e){help.textContent="تعذّر إجراء التحليل على هذا الملف.";}
+  }
+
+  async function process(file){
+    current={name:file.name,size:file.size,type:file.type,lastModified:file.lastModified};
+    results.classList.remove("hidden");
+    $("f-name").textContent=file.name;$("f-size").textContent=humanSize(file.size);
+    $("f-declared").textContent=(file.type||"غير محدّد")+(extOf(file.name)?("  ·  ."+extOf(file.name)):"");
+    $("f-mod").textContent=file.lastModified?new Date(file.lastModified).toLocaleString("en-GB"):"غير متوفر";
+    $("f-true").textContent="… يُحلَّل";$("f-c2pa").textContent="…";
+    $("sha256").innerHTML='<span class="spinner"></span>';$("sha1").textContent="…";$("sha512").textContent="…";
+    $("type-warn").innerHTML="";$("verdict").innerHTML="";$("ref-hash").value="";
+    $("meta-panel").classList.add("hidden");$("ela-panel").classList.add("hidden");$("ela-wrap").classList.add("hidden");$("pdf-panel").classList.add("hidden");
+    const buf=await file.arrayBuffer();
+    const head=new Uint8Array(buf.slice(0,32)); const tt=sniffType(head); $("f-true").textContent=tt;
+    const ext=extOf(file.name), ok=typeMatchesExt(tt,ext);
+    if(ok===false)$("type-warn").innerHTML='<div class="badge b-warn" style="margin-top:14px">⚠ تنبيه: الامتداد (.'+ext+') لا يطابق النوع الحقيقي - قد أُعيدت تسميته. وثّق هذا.</div>';
+    else if(ok===true)$("type-warn").innerHTML='<div class="badge b-ok" style="margin-top:14px">✓ الامتداد يطابق النوع الحقيقي للملف</div>';
+    const c2pa=hasC2PA(new Uint8Array(buf));
+    $("f-c2pa").innerHTML=c2pa?'<span class="badge b-ok">عُثر على شهادات محتوى - افحص مصدرها</span>':'<span class="badge b-neutral">لا توجد شهادات محتوى مكتشفة</span>';
+    const sha256=await digest("SHA-256",buf); current.sha256=sha256; $("sha256").textContent=sha256;
+    $("sha1").textContent=await digest("SHA-1",buf); $("sha512").textContent=await digest("SHA-512",buf);
+    buildRecord(); analyzeMeta(buf,file,tt);
+    if(/PDF/i.test(tt)) analyzePDFPanel(buf);
+  }
+  function buildRecord(){if(!current)return;const ex=$("examiner").value.trim()||"-",cs=$("case-no").value.trim()||"-";
+    $("record").textContent="DIGITAL EVIDENCE INTEGRITY RECORD\nمحضر التحقّق من سلامة الدليل الرقمي\n=========================================\n"+
+    "File name      : "+current.name+"\nSize           : "+current.size+" bytes\nDeclared type  : "+(current.type||"n/a")+"\nTrue type      : "+$("f-true").textContent+"\n"+
+    "Last modified  : "+(current.lastModified?new Date(current.lastModified).toISOString():"n/a")+"\nC2PA creds     : "+($("f-c2pa").textContent.includes("عُثر")?"detected":"none detected")+"\n"+
+    "-----------------------------------------\nSHA-256        : "+(current.sha256||"")+"\n-----------------------------------------\nExaminer       : "+ex+"\nCase no.       : "+cs+"\nVerified at    : "+iNow()+" (local)\n"+
+    "=========================================\nNote: integrity/provenance check only - NOT a deepfake determination.";}
+  function _refHash(raw){
+    const t=String(raw).toLowerCase();
+    const m=t.match(/(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])/);
+    if(m)return m[0];
+    const c=t.replace(/[\s:.-]+/g,"");
+    return /^[0-9a-f]{64}$/.test(c)?c:null;
+  }
+  function _bitDiff(a,b){
+    const bits=[];let n=0;
+    for(let i=0;i<64;i++){const x=parseInt(a[i],16)^parseInt(b[i],16);for(let k=3;k>=0;k--){const v=(x>>k)&1;bits.push(v);n+=v;}}
+    return {n,bits};
+  }
+  function _hexMark(a,b){let o="";for(let i=0;i<64;i++)o+=(a[i]===b[i])?a[i]:"<b>"+a[i]+"</b>";return o;}
+  function compare(){
+    const raw=$("ref-hash").value.trim();const out=$("verdict");
+    if(!raw){out.innerHTML="";return;}
+    if(!current||!current.sha256)return;
+    const ref=_refHash(raw);
+    if(!ref){out.innerHTML='<div class="verdict v-hint">لم يُعثر على بصمة SHA-256 صالحة في النص. البصمة 64 رمزاً ست عشرياً (0-9 و a-f).</div>';return;}
+    if(ref===current.sha256){
+      out.innerHTML='<div class="verdict v-match"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>متطابق - لم يتغيّر الملف منذ البصمة المرجعية (256 بت من 256).</div>';
+      return;
+    }
+    const d=_bitDiff(current.sha256,ref);
+    const hexN=[...ref].filter((c,i)=>c!==current.sha256[i]).length;
+    out.innerHTML='<div class="verdict v-fail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>غير متطابق - تغيّر الملف، أو البصمة المرجعية لملف آخر.</div>'
+      +'<div class="bitbox"><div class="bitstat">'
+      +'<div><span class="big">'+d.n+' / 256</span> <span class="lbl">بت مختلف ('+(d.n/256*100).toFixed(1)+'%)</span></div>'
+      +'<div><span class="big">'+hexN+' / 64</span> <span class="lbl">رمز ست عشري مختلف</span></div></div>'
+      +'<div class="bitgrid" aria-label="خريطة البتات المختلفة">'+d.bits.map(v=>v?'<i class="d"></i>':'<i></i>').join("")+'</div>'
+      +'<div class="hexlbl">بصمة الملف الحالي</div><div class="hexrow">'+_hexMark(current.sha256,ref)+'</div>'
+      +'<div class="hexlbl">البصمة المرجعية</div><div class="hexrow">'+_hexMark(ref,current.sha256)+'</div>'
+      +'<p class="note">كل مربع بت واحد من البصمة، والأحمر هو البت الذي اختلف. في دالة تجزئة سليمة يقلب أي تغيير في الملف نحو نصف البتات (قرابة 128 من 256)، وهذا ما يسمى أثر الانهيار. لذلك لا يدل عدد البتات المختلفة على حجم التعديل: تغيير بكسل واحد وملف مختلف تماماً يعطيان النسبة نفسها تقريباً.</p></div>';
+  }
+  drop.addEventListener("click",()=>fileInput.click());
+  drop.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();fileInput.click();}});
+  fileInput.addEventListener("change",e=>{if(e.target.files[0])process(e.target.files[0]);});
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+  drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])process(e.dataTransfer.files[0]);});
+  $("ref-hash").addEventListener("input",compare);
+  $("run-ela").addEventListener("click",runELA);
+  $("examiner").addEventListener("input",buildRecord);$("case-no").addEventListener("input",buildRecord);
+  $("copy-hash").addEventListener("click",()=>{if(current&&current.sha256){navigator.clipboard.writeText(current.sha256);flash($("copy-hash"),"نُسخت ✓");}});
+  $("copy-record").addEventListener("click",()=>{navigator.clipboard.writeText($("record").textContent);flash($("copy-record"),"نُسخ ✓");});
+  $("print-record").addEventListener("click",()=>window.print());
+  $("reset").addEventListener("click",()=>{current=null;results.classList.add("hidden");fileInput.value="";});
+
+  /* =========================================================
+     UNIT 4 - PIXEL COMPARATOR (local, canvas-based)
+  ========================================================= */
+  let imgA=null,imgB=null;
+  function _readCmp(file,dropEl,which){
+    const img=new Image();
+    img.onload=()=>{ if(which==="A")imgA=img; else imgB=img; dropEl.classList.add("loaded");
+      dropEl.querySelector("b").textContent=(which==="A"?"الأصلية (أ) ✓":"المشتبه بها (ب) ✓"); _tryCmp(); };
+    img.onerror=()=>{$("cmp-status").textContent="تعذّر تحميل الصورة.";};
+    img.src=URL.createObjectURL(file);
+  }
+  function _wireCmp(input,dropEl,which){
+    input.addEventListener("change",e=>{const f=e.target.files[0];if(f)_readCmp(f,dropEl,which);});
+    dropEl.addEventListener("click",()=>input.click());
+    dropEl.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();input.click();}});
+    ["dragenter","dragover"].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.add("over");}));
+    ["dragleave","drop"].forEach(ev=>dropEl.addEventListener(ev,e=>{e.preventDefault();dropEl.classList.remove("over");}));
+    dropEl.addEventListener("drop",e=>{const f=e.dataTransfer.files[0];if(f)_readCmp(f,dropEl,which);});
+  }
+  function _tryCmp(){
+    if(!imgA||!imgB){$("cmp-status").textContent="ارفع النسختين للمقارنة.";return;}
+    if(imgA.width!==imgB.width||imgA.height!==imgB.height){
+      $("cmp-results").classList.add("hidden");
+      $("cmp-status").innerHTML='<span class="badge b-warn">⚠ الصورتان بأبعاد مختلفة ('+imgA.width+'×'+imgA.height+' مقابل '+imgB.width+'×'+imgB.height+') - المقارنة بالبكسل تتطلب نفس الأبعاد.</span>';
+      return;
+    }
+    $("cmp-status").textContent=""; $("cmp-results").classList.remove("hidden"); _runDiff();
+  }
+  function _runDiff(){
+    const scale=Math.min(1,520/imgA.width),w=Math.max(1,Math.round(imgA.width*scale)),h=Math.max(1,Math.round(imgA.height*scale));
+    const ca=$("cv-a"),cb=$("cv-b"),cd=$("cv-diff");[ca,cb,cd].forEach(c=>{c.width=w;c.height=h;});
+    const xa=ca.getContext("2d"),xb=cb.getContext("2d"),xd=cd.getContext("2d");
+    xa.drawImage(imgA,0,0,w,h);xb.drawImage(imgB,0,0,w,h);
+    const da=xa.getImageData(0,0,w,h).data,db=xb.getImageData(0,0,w,h).data,out=xd.createImageData(w,h);
+    const th=+$("cmp-sens").value;let changed=0;const total=w*h;
+    for(let i=0;i<da.length;i+=4){
+      const dmax=Math.max(Math.abs(da[i]-db[i]),Math.abs(da[i+1]-db[i+1]),Math.abs(da[i+2]-db[i+2]));
+      if(dmax>th){changed++;out.data[i]=255;out.data[i+1]=40;out.data[i+2]=60;out.data[i+3]=255;}
+      else{const g=(da[i]+da[i+1]+da[i+2])/3*0.4;out.data[i]=out.data[i+1]=out.data[i+2]=g;out.data[i+3]=255;}
+    }
+    xd.putImageData(out,0,0);
+    const pct=changed/total*100; const pe=$("cmp-pct"); pe.textContent="اختلاف: "+pct.toFixed(2)+"%";
+    const v=$("cmp-verdict");
+    if(changed===0){pe.className="badge b-ok";
+      v.innerHTML='<div class="verdict v-match" style="margin-bottom:16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>الصورتان متطابقتان بالبكسل عند هذه الحساسية.</div>';}
+    else{pe.className="badge b-warn";
+      v.innerHTML='<div class="verdict v-fail" style="margin-bottom:16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>توجد اختلافات بين النسختين - المواضع مُبرَزة بالأحمر في خريطة الاختلاف.</div>';}
+  }
+  _wireCmp($("fileA"),$("dropA"),"A"); _wireCmp($("fileB"),$("dropB"),"B");
+  $("cmp-sens").addEventListener("input",()=>{if(imgA&&imgB&&imgA.width===imgB.width&&imgA.height===imgB.height)_runDiff();});
+})();
+</script>
+</body>
+</html>
